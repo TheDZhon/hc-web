@@ -3,10 +3,13 @@
 
 #include <string>
 
-class HCController
+#include <Wt/WObject>
+#include <Wt/WTimer>
+
+class HCController: public Wt::WObject
 {
 public:
-    HCController();
+    HCController (WObject *parent = 0);
     ~HCController();
 
     void read();

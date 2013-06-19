@@ -9,13 +9,15 @@
 #include "serial.h"
 
 using namespace ::std;
+using namespace ::Wt;
 
 namespace
 {
 const char kPortName[] = "/dev/ttyUSB0";
 }
 
-HCController::HCController() :
+HCController::HCController(WObject *parent) :
+    WObject(parent),
     fd_(-1)
 {
     fd_ = open(kPortName, O_RDWR | O_NOCTTY | O_SYNC);
@@ -34,12 +36,12 @@ HCController::~HCController()
     close(fd_);
 }
 
-void HCController::read ()
+void HCController::read()
 {
-	
+
 }
 
-void HCController::setSpeed (int level)
+void HCController::setSpeed(int level)
 {
 
 }

@@ -31,7 +31,7 @@ HCWidget::HCWidget(Wt::WContainerWidget *parent):
 	
 	for (unsigned i = 0U; i < kQuants; ++i) 
 	{
-		double x = (static_cast<double>(i) - kQuants) / 4;
+		const double x = (static_cast<double>(i) - kQuants);
 
 		wmodel->setData (i, kTimeAxis, x);
 		wmodel->setData (i, kTemperatureAxis, sin(x));
@@ -42,6 +42,7 @@ HCWidget::HCWidget(Wt::WContainerWidget *parent):
 	cart->setModel (wmodel);
 	cart->setXSeriesColumn (0);
 	cart->setLegendEnabled (true);
+	cart->setLegendLocation (Chart::LegendInside, Wt::Left, Wt::AlignCenter);
 
 	cart->setType(Chart::ScatterPlot);
 	
