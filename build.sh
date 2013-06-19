@@ -1,3 +1,3 @@
 #!/bin/sh
 
-g++ main.cpp -lcgicc -o hc001-web
+g++ main.cpp serial.c -lcgicc -o hc001-web
