@@ -33,6 +33,8 @@ public:
 
 		set_interface_attribs (fd_, B9600, 0);
 		set_blocking (fd_, 1);
+
+		read ();
 	}
 
 	void read () {

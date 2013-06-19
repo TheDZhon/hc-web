@@ -1,3 +1,4 @@
 #!/bin/sh
 
-g++ main.cpp serial.c -lcgicc -o hc001-web
+mkdir -p bin
+g++ src/main.cpp src/serial.c -lcgicc -o bin/hc001-web
