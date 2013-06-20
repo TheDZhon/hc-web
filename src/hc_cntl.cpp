@@ -38,9 +38,9 @@ HCController::HCController(WObject *parent) :
 
 HCController::~HCController()
 {
-	sport_.cancel();
-	sport_.close();
-	
+    sport_.cancel();
+    sport_.close();
+
     work_.reset();
     worker_.join();
 }
@@ -97,13 +97,13 @@ void HCController::handleRead(const error_code &ec, size_t bytes)
         std::smatch sm;
         if (std::regex_match(s, sm, kReadRe)) {
             hc_data_t data;
-			
-			data.humidity = std::stod (sm[kHumidity]);
-			data.temperature = std::stod (sm[kTemperature]);
-			data.speed = std::stoi (sm[kSpeed]);
-			
-			cb_ (data);
-		} else {
+
+            data.humidity = std::stod(sm[kHumidity]);
+            data.temperature = std::stod(sm[kTemperature]);
+            data.speed = std::stoi(sm[kSpeed]);
+
+            cb_(data);
+        } else {
             err_("Mallformed string from serial port");
         }
     } else {

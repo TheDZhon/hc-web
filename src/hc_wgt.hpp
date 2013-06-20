@@ -3,11 +3,18 @@
 
 #include <Wt/WContainerWidget>
 
+#include "hc_master.hpp"
+
 class HCWidget: public Wt::WContainerWidget
 {
 public:
-    HCWidget(WContainerWidget *parent = 0);
+    explicit HCWidget (HCMaster & hc_master, WContainerWidget *parent = 0);
     virtual ~HCWidget();
+    
+    void displayData (const hc_data_t & d);
+    void displayError (const std::string & err);
+private:
+    HCMaster & hc_master_;
 };
 
 #endif // HC_WGT_H__
