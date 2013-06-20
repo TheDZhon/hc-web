@@ -1,5 +1,5 @@
-#ifndef HC_SERIAL_H__
-#define HC_SERIAL_H__
+#ifndef HC_CNTL_H__
+#define HC_CNTL_H__
 
 #include <functional>
 #include <memory>
@@ -12,7 +12,7 @@
 #include <Wt/WObject>
 #include <Wt/WTimer>
 
-#include "data/hc_data.h"
+#include "data/hc_data.hpp"
 
 namespace as = boost::asio;
 
@@ -44,4 +44,4 @@ private:
 	ErrCb err_;
 };
 
-#endif // HC_SERIAL_H__
+#endif // HC_CNTL_H__

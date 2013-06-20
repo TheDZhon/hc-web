@@ -3,15 +3,15 @@
 SET (WT_CONNECTOR "wthttp" CACHE STRING "Connector for wt (wthttp or wtfcgi)")
 
 SET (HC_SOURCES
-  3rdparty/serial.cpp
   main.cpp
   hc_wgt.cpp
-  hc_serial.cpp)
+  hc_cntl.cpp
+  hc_master.cpp)
 
 SET (HC_HEADERS
-  3rdparty/serial.h
   hc_wgt.hpp
-  hc_serial.hpp)
+  hc_cntl.hpp
+  hc_master.hpp)
 
 SET (WT_PROJECT_TARGET hc_001.wt)
 
