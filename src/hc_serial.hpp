@@ -1,31 +1,47 @@
 #ifndef HC_SERIAL_H__
 #define HC_SERIAL_H__
 
-#include <string>
+#include <functional>
+#include <memory>
+#include <thread>
+
+#include <boost/asio/io_service.hpp>
+#include <boost/asio/serial_port.hpp>
+#include <boost/asio/streambuf.hpp>
 
 #include <Wt/WObject>
 #include <Wt/WTimer>
 
-class HCController: public Wt::WObject
+#include "data/hc_data.h"
+
+namespace as = boost::asio;
+
+class HCController: 
+	public Wt::WObject
 {
 public:
+	typedef std::function<void (const hc_data_t&)> RcvdCb;
+	typedef std::function<void (const std::string & err)> ErrCb;
+	
     HCController (WObject *parent = 0);
     ~HCController();
 
-    void read();
-    void setSpeed(int level);
-
-    std::string temperature() const {
-        return t_buf_;
-    }
-    std::string humidity() const {
-        return h_buf_;
-    }
+	void start (const RcvdCb & r, const ErrCb & err);
+	
+    void setSpeed (int percents);
 private:
-    int fd_;
-
-    std::string t_buf_;
-    std::string h_buf_;
+	void asyncRead ();
+	void handleRead (const boost::system::error_code & ec, size_t bytes);
+	
+    as::io_service io_;
+	as::serial_port sport_;
+	as::streambuf read_buf_;
+	
+	std::unique_ptr<as::io_service::work> work_;
+	std::thread worker_;
+	
+	RcvdCb cb_;
+	ErrCb err_;
 };
 
 #endif // HC_SERIAL_H__
