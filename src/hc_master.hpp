@@ -21,6 +21,8 @@ public:
 
     void reg(HCWidget*);
     void unreg(HCWidget*);
+public /*slots*/:
+    void changeSpeed (int new_speed);
 private:
     typedef std::function <void (HCWidget* f)> Func1;
     typedef std::unordered_map<HCWidget*, std::string> Sessions;

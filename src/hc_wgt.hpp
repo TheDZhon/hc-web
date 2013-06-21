@@ -1,6 +1,8 @@
 #ifndef HC_WGT_H__
 #define HC_WGT_H__
 
+#include <functional>
+
 #include <Wt/WContainerWidget>
 
 #include "hc_master.hpp"
@@ -14,7 +16,11 @@ public:
     void displayData (const hc_data_t & d);
     void displayError (const std::string & err);
 private:
-    HCMaster & hc_master_;
+    typedef std::function<void (void)> Func0;
+  
+    void makeVisibleToUser (Func0 f);
+  
+    HCMaster & hc_master_;    
 };
 
 #endif // HC_WGT_H__

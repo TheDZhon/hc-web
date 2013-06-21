@@ -16,7 +16,8 @@ namespace
 const size_t kBaudRate = 9600U;
 const char kPortName[] = "/dev/ttyUSB0";
 const char kTermSymbol = '|';
-const std::regex kReadRe("[H:(\\d+)][T:(\\d+)][S:(\\d+)]");
+//const std::regex kReadRe("H:(\\d+)T:(\\d+)S:(\\d+)");
+const std::regex kReadRe("H");
 
 enum RcvIndxs {
     kHumidity = 1,
@@ -33,7 +34,6 @@ HCController::HCController(WObject *parent) :
     work_(new as::io_service::work(io_)),
     worker_()
 {
-    sport_.set_option(as::serial_port_base::baud_rate(kBaudRate));
 }
 
 HCController::~HCController()
@@ -56,6 +56,13 @@ void HCController::start(const HCController::RcvdCb &r, const HCController::ErrC
         err_("Can't open port!");
         return;
     }
+
+    sport_.set_option(as::serial_port_base::baud_rate(kBaudRate), ec);
+    if (ec) {
+        err_("Can't set port speed!");
+        return;
+    }
+
 
     worker_ = std::thread([&]() {
         io_.run();

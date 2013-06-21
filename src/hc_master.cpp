@@ -46,6 +46,11 @@ void HCMaster::unreg(HCWidget *wgt)
     sess_.erase (wgt);
 }
 
+void HCMaster::changeSpeed (int new_speed)
+{
+    hc_cntl_.setSpeed (new_speed);
+}
+
 void HCMaster::handleData(const hc_data_t &d)
 {
     handleImpl([ = ](HCWidget * w) {
@@ -58,6 +63,8 @@ void HCMaster::handleError(const std::string &err)
     handleImpl([ = ](HCWidget * w) {
         w->displayError(err);
     });
+    
+    std::cerr << err << std::endl;
 }
 
 void HCMaster::handleImpl(Func1 f1)

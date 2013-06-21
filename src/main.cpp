@@ -32,19 +32,21 @@ public:
 int main(int argc, char **argv)
 {
     WServer server(argv[0]);
+
     HCMaster hc_master(server);
+    hc_master.start();
 
     server.setServerConfiguration(argc, argv, WTHTTP_CONFIGURATION);
 
     server.addEntryPoint(Wt::Application, [&hc_master](const WEnvironment & env) {
         return new HCApplication(env, hc_master);
     });
-    
+
     if (server.start()) {
-	auto sig = WServer::waitForShutdown ();
-	std::cerr << "Shutting down: (signal = " << sig << ")" << std::endl;
-	server.stop ();
+        auto sig = WServer::waitForShutdown();
+        std::cerr << "Shutting down: (signal = " << sig << ")" << std::endl;
+        server.stop();
     }
-    
+
     return EXIT_FAILURE;
 }
