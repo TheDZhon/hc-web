@@ -8,35 +8,36 @@
 #include "hc_cntl.hpp"
 
 class HCWidget;
-namespace Wt {
-class WServer;  
+namespace Wt
+{
+class WServer;
 }
 
 class HCMaster
 {
 public:
-    explicit HCMaster(Wt::WServer & serv);
+    explicit HCMaster(Wt::WServer &serv);
 
     void start();
 
-    void reg(HCWidget*);
-    void unreg(HCWidget*);
+    void reg(HCWidget *);
+    void unreg(HCWidget *);
 public /*slots*/:
-    void changeSpeed (int new_speed);
+    void changeSpeed(int new_speed);
 private:
-    typedef boost::function <void (HCWidget* f)> Func1;
-    typedef boost::unordered_map<HCWidget*, std::string> Sessions;
+    typedef boost::function <void (HCWidget *f)> Func1;
+    typedef boost::unordered_map<HCWidget *, std::string> Sessions;
 
     void handleData(const hc_data_t &);
     void handleError(const std::string &);
-    
-    void handleImpl (Func1);
 
-    Wt::WServer & serv_;
-    
+    void handleImpl(Func1);
+
+    Wt::WServer &serv_;
+
     HCController hc_cntl_;
     Sessions sess_;
-    
+
     mutable boost::recursive_mutex mut_;
 };
 

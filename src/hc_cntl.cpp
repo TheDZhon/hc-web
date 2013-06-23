@@ -6,6 +6,8 @@
 
 #include <boost/lexical_cast.hpp>
 
+#include <boost/date_time/posix_time/posix_time.hpp>
+
 #include <boost/asio/write.hpp>
 #include <boost/asio/read_until.hpp>
 
@@ -13,6 +15,7 @@ using namespace ::std;
 using namespace ::Wt;
 using namespace ::boost;
 using namespace ::boost::system;
+using namespace ::boost::posix_time;
 
 namespace
 {
@@ -34,7 +37,8 @@ HCController::HCController(WObject *parent) :
     sport_(io_),
     read_buf_(),
     work_(new as::io_service::work(io_)),
-    worker_()
+    worker_(),
+    timer_(io_)
 {
 }
 
@@ -65,31 +69,38 @@ void HCController::start(const HCController::RcvdCb &r, const HCController::ErrC
         return;
     }
 
-    worker_ = boost::thread(boost::bind (&as::io_service::run, boost::ref(io_)));
+    worker_ = boost::thread(boost::bind(&as::io_service::run, boost::ref(io_)));
 
     asyncRead();
+	startTimer();
 }
 
 void HCController::setSpeed(int level)
 {
-    const std::string & s = boost::lexical_cast<std::string>(level) + kTermSymbol;
+    const std::string &s = boost::lexical_cast<std::string>(level) + kTermSymbol;
     const boost::shared_ptr<std::string> s_ptr = boost::make_shared<std::string> (s);
 
     as::async_write(sport_, as::buffer(s_ptr->data(), s_ptr->size()),
-		boost::bind (&HCController::handleWrite, this, s_ptr, _1, _2));
+                    boost::bind(&HCController::handleWrite, this, s_ptr, _1, _2));
 }
 
 void HCController::asyncRead()
 {
     as::async_read_until(sport_, read_buf_, kTermSymbol,
-		boost::bind (&HCController::handleRead, this, _1, _2));
+                         boost::bind(&HCController::handleRead, this, _1, _2));
 }
 
-void HCController::handleWrite(boost::shared_ptr<std::string> buf, const error_code& ec, size_t bytes)
+void HCController::startTimer()
 {
-	if (ec || (buf->size() != bytes)) {
-		err_("Can't transmit speed to serial port");
-	}
+    timer_.expires_from_now(seconds(3));
+    timer_.async_wait(boost::bind(&HCController::handleTimer, this, _1));
+}
+
+void HCController::handleWrite(boost::shared_ptr<std::string> buf, const error_code &ec, size_t bytes)
+{
+    if (ec || (buf->size() != bytes)) {
+        err_("Can't transmit speed to serial port");
+    }
 }
 
 void HCController::handleRead(const error_code &ec, size_t bytes)
@@ -118,4 +129,11 @@ void HCController::handleRead(const error_code &ec, size_t bytes)
     }
 
     asyncRead();
+}
+
+void HCController::handleTimer(const error_code &ec)
+{
+	//TODO(DZhon): Timed actions can be performed here
+	
+	startTimer();
 }

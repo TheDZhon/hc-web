@@ -8,6 +8,7 @@
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/serial_port.hpp>
 #include <boost/asio/streambuf.hpp>
+#include <boost/asio/deadline_timer.hpp>
 
 #include <Wt/WObject>
 #include <Wt/WTimer>
@@ -31,9 +32,11 @@ public:
     void setSpeed(int percents);
 private:
     void asyncRead();
-	
-	void handleWrite(boost::shared_ptr<std::string> buf, const boost::system::error_code &ec, size_t bytes);
+	void startTimer();
+
+    void handleWrite(boost::shared_ptr<std::string> buf, const boost::system::error_code &ec, size_t bytes);
     void handleRead(const boost::system::error_code &ec, size_t bytes);
+    void handleTimer(const boost::system::error_code &ec);
 
     as::io_service io_;
     as::serial_port sport_;
@@ -44,6 +47,8 @@ private:
 
     RcvdCb cb_;
     ErrCb err_;
+
+    as::deadline_timer timer_;
 };
 
 #endif // HC_CNTL_H__

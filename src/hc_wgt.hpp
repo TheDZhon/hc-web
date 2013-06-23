@@ -10,17 +10,20 @@
 class HCWidget: public Wt::WContainerWidget
 {
 public:
-    explicit HCWidget (HCMaster & hc_master, WContainerWidget *parent = 0);
+    explicit HCWidget(HCMaster &hc_master, WContainerWidget *parent = 0);
     virtual ~HCWidget();
-    
-    void displayData (const hc_data_t & d);
-    void displayError (const std::string & err);
+
+    void displayData(const hc_data_t &d);
+    void displayError(const std::string &err);
 private:
-    typedef boost::function<void (void)> Func0;
-  
-    void makeVisibleToUser (Func0 f);
-  
-    HCMaster & hc_master_;    
+    void makeVisibleToUser();
+
+    HCMaster &hc_master_;
+
+    Wt::WLineEdit *speed_feedback_lineedit_;
+	Wt::WStandardItemModel * graph_data_model_;
+	
+	int last_ind_;
 };
 
 #endif // HC_WGT_H__

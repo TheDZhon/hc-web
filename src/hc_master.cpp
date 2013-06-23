@@ -24,7 +24,7 @@ HCMaster::HCMaster(Wt::WServer &serv):
 
 void HCMaster::start()
 {
-    hc_cntl_.start(boost::bind (&HCMaster::handleData, this, _1), boost::bind (&HCMaster::handleError, this, _1));
+    hc_cntl_.start(boost::bind(&HCMaster::handleData, this, _1), boost::bind(&HCMaster::handleError, this, _1));
 }
 
 void HCMaster::reg(HCWidget *wgt)
@@ -38,23 +38,23 @@ void HCMaster::unreg(HCWidget *wgt)
 {
     MutexGuard _(mut_);
 
-    sess_.erase (wgt);
+    sess_.erase(wgt);
 }
 
-void HCMaster::changeSpeed (int new_speed)
+void HCMaster::changeSpeed(int new_speed)
 {
-    hc_cntl_.setSpeed (new_speed);
+    hc_cntl_.setSpeed(new_speed);
 }
 
 void HCMaster::handleData(const hc_data_t &d)
 {
-    handleImpl(boost::bind (&HCWidget::displayData, _1, d));
+    handleImpl(boost::bind(&HCWidget::displayData, _1, d));
 }
 
 void HCMaster::handleError(const std::string &err)
 {
-    handleImpl(boost::bind (&HCWidget::displayError, _1, err));
-    
+    handleImpl(boost::bind(&HCWidget::displayError, _1, err));
+
     std::cerr << err << std::endl;
 }
 
@@ -64,14 +64,13 @@ void HCMaster::handleImpl(Func1 f1)
 
     WApplication *app = WApplication::instance();
 
-	for (Sessions::iterator it = sess_.begin();
-		 it != sess_.end();
-		++it)
-	{
-		if (app && app->sessionId() == it->second) {
+    for (Sessions::iterator it = sess_.begin();
+            it != sess_.end();
+            ++it) {
+        if (app && app->sessionId() == it->second) {
             f1(it->first);
         } else {
-            serv_.post(it->second, boost::bind (f1, it->first));
+            serv_.post(it->second, boost::bind(f1, it->first));
         }
-	}
+    }
 }

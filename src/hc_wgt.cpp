@@ -3,6 +3,7 @@
 #include <Wt/WString>
 #include <Wt/WText>
 #include <Wt/WStandardItemModel>
+#include <Wt/WStandardItem>
 #include <Wt/WApplication>
 #include <Wt/WSlider>
 #include <Wt/WSpinBox>
@@ -19,7 +20,7 @@ using namespace ::Wt::Chart;
 
 namespace
 {
-const size_t kQuants = 40;
+const size_t kQuants = 30;
 
 enum Axes {
     kTimeAxis,
@@ -33,86 +34,83 @@ enum Axes {
 
 HCWidget::HCWidget(HCMaster &hc_master, Wt::WContainerWidget *parent):
     WContainerWidget(parent),
-    hc_master_(hc_master)
+    hc_master_(hc_master),
+    speed_feedback_lineedit_(0),
+    graph_data_model_(0),
+    last_ind_(0)
 {
-    WVBoxLayout * top_layout = new WVBoxLayout;
-  
-    WStandardItemModel *wmodel = new WStandardItemModel(kQuants, kAxesCnt, this);
-    wmodel->setHeaderData(kTimeAxis, WString("Time"));
-    
-    wmodel->setHeaderData(kTemperatureAxis, WString("Temperature"));
-    wmodel->setHeaderData(kHumidityAxis, WString("Humidity"));
-    wmodel->setHeaderData(kSpeedAxis, WString ("Speed"));
-    
-    for (unsigned i = 0U; i < kQuants; ++i) {
-        const double x = (static_cast<double>(i) - kQuants);
+    WVBoxLayout *top_level_layout = new WVBoxLayout;
 
-	WTime t (22, 54, i);	
-	
-        wmodel->setData(i, kTimeAxis, t);
-        wmodel->setData(i, kTemperatureAxis, 27 + 0.3*sin(x));
-        wmodel->setData(i, kHumidityAxis, 65 + 0.1*cos(x));
-	wmodel->setData(i, kSpeedAxis, 50 + cos(x) * sin(x));
-    }
+    graph_data_model_ = new WStandardItemModel(kQuants, kAxesCnt, this);
 
-    WCartesianChart *cart = new WCartesianChart;
-    top_layout->addWidget(cart);
-    
-    cart->setModel(wmodel);
-    cart->setXSeriesColumn(0);
-    cart->setLegendEnabled(true);
-    cart->setLegendLocation(Chart::LegendInside, Wt::Right, Wt::AlignRight);
+    graph_data_model_->setHeaderData(kTimeAxis, WString("Time"));
+    graph_data_model_->setHeaderData(kTemperatureAxis, WString("Temperature"));
+    graph_data_model_->setHeaderData(kHumidityAxis, WString("Humidity"));
+    graph_data_model_->setHeaderData(kSpeedAxis, WString("Speed"));
 
-    cart->setType(Chart::CategoryChart);
+    WCartesianChart *plot = new WCartesianChart;
+    top_level_layout->addWidget(plot);
 
-    cart->axis(XAxis).setLocation(Chart::MinimumValue);
-    cart->axis(YAxis).setLocation(Chart::MinimumValue);
+    plot->setModel(graph_data_model_);
+    plot->setXSeriesColumn(0);
+    plot->setLegendEnabled(true);
+    plot->setLegendLocation(Chart::LegendInside, Wt::Right, Wt::AlignRight);
 
-    //cart->setPlotAreaPadding(60, Left | Right);
-    cart->setPlotAreaPadding(60, Top);
+    plot->setType(Chart::CategoryChart);
 
-    WDataSeries tseries(kTemperatureAxis, CurveSeries);
-    tseries.setShadow(WShadow(3, 3, WColor(0, 0, 0, 127), 3));
-    cart->addSeries(tseries);
+    plot->axis(XAxis).setLocation(Chart::MinimumValue);
+    plot->axis(YAxis).setLocation(Chart::MinimumValue);
 
-    WDataSeries hseries(kHumidityAxis, CurveSeries);
-    hseries.setShadow(WShadow(3, 3, WColor(0, 0, 0, 127), 3));
-    cart->addSeries(hseries);
-    
-    WDataSeries sseries(kSpeedAxis, CurveSeries);
-    sseries.setShadow(WShadow(3, 3, WColor(0, 0, 0, 127), 3));
-    cart->addSeries(sseries);
+    plot->setPlotAreaPadding(60, Top);
 
-    cart->resize(800, 200); // WPaintedWidget must be given explicit size
+    WDataSeries time_series(kTemperatureAxis, CurveSeries);
+    time_series.setShadow(WShadow(3, 3, WColor(0, 0, 0, 127), 3));
+    plot->addSeries(time_series);
 
-    cart->setMargin(10, Top | Bottom);             // add margin vertically
-    cart->setMargin(WLength::Auto, Left | Right);  // center horizontally
-  
-    WPanel * control_panel = new WPanel; 
-    top_layout->addWidget(control_panel);
-    
-    WHBoxLayout * control_layout = new WHBoxLayout;
+    WDataSeries humidity_series(kHumidityAxis, CurveSeries);
+    humidity_series.setShadow(WShadow(3, 3, WColor(0, 0, 0, 127), 3));
+    plot->addSeries(humidity_series);
 
-    control_panel->setTitle ("Humidifier control");
-    
-    WText * slider_txt = new WText (this);
-    control_layout->addWidget(slider_txt);
-    slider_txt->setText("Set FAN speed: ");
-    slider_txt->setMargin (15, Bottom | Top);
-    
-    WSlider * slider = new WSlider (Wt::Horizontal, this);
-    control_layout->addWidget (slider, 1);
-    slider->setMinimum(0); slider->setMaximum(100);
-    slider->setValue (0);
-    slider->setTickInterval(10);
-    slider->setTickPosition(WSlider::TicksBelow);
-    slider->valueChanged().connect (&hc_master_, &HCMaster::changeSpeed);
-    
-    WContainerWidget * control = new WContainerWidget;
-    control->setLayout(control_layout);  
-    control_panel->setCentralWidget (control);
-    this->setLayout(top_layout);
-    
+    WDataSeries speed_series(kSpeedAxis, CurveSeries);
+    speed_series.setShadow(WShadow(3, 3, WColor(0, 0, 0, 127), 3));
+    plot->addSeries(speed_series);
+
+    plot->resize(800, 200); // WPaintedWidget must be given explicit size
+
+    plot->setMargin(10, Top | Bottom);             // add margin vertically
+    plot->setMargin(WLength::Auto, Left | Right);  // center horizontally
+
+    WPanel *speed_control_panel = new WPanel;
+    top_level_layout->addWidget(speed_control_panel);
+
+    WHBoxLayout *control_layout = new WHBoxLayout;
+
+    speed_control_panel->setTitle("Humidifier control");
+
+    WText *speed_control_label = new WText(this);
+    control_layout->addWidget(speed_control_label);
+    speed_control_label->setText("Set FAN speed: ");
+    speed_control_label->setMargin(15, Bottom | Top);
+
+    WSlider *speed_control_slider = new WSlider(Wt::Horizontal, this);
+    control_layout->addWidget(speed_control_slider, 1);
+    speed_control_slider->setMinimum(0);
+    speed_control_slider->setMaximum(100);
+    speed_control_slider->setValue(0);
+    speed_control_slider->setTickInterval(10);
+    speed_control_slider->setTickPosition(WSlider::TicksBelow);
+    speed_control_slider->valueChanged().connect(&hc_master_, &HCMaster::changeSpeed);
+
+    speed_feedback_lineedit_ = new WLineEdit;
+    speed_feedback_lineedit_->setReadOnly(true);
+    speed_feedback_lineedit_->setAttributeValue("style", "text-align: center;");
+    control_layout->addWidget(speed_feedback_lineedit_);
+
+    WContainerWidget *speed_control_container = new WContainerWidget;
+    speed_control_container->setLayout(control_layout);
+    speed_control_panel->setCentralWidget(speed_control_container);
+    setLayout(top_level_layout);
+
     hc_master_.reg(this);
     WApplication::instance()->enableUpdates(true);
 }
@@ -125,16 +123,26 @@ HCWidget::~HCWidget()
 
 void HCWidget::displayData(const hc_data_t &d)
 {
-   
+    speed_feedback_lineedit_->setText(boost::lexical_cast<std::string>(d.speed));
+
+    last_ind_ = (++last_ind_) % kQuants;
+
+    graph_data_model_->setData(last_ind_, kTimeAxis, WTime::currentServerTime());
+    graph_data_model_->setData(last_ind_, kTemperatureAxis, d.temperature);
+    graph_data_model_->setData(last_ind_, kHumidityAxis, d.humidity);
+    graph_data_model_->setData(last_ind_, kSpeedAxis, d.speed);
+
+    makeVisibleToUser();
 }
 
 void HCWidget::displayError(const std::string &err)
 {
-    
+    //TODO(DZhon): Provide convenient way for error reporting
+
+    makeVisibleToUser();
 }
 
-void HCWidget::makeVisibleToUser (Func0 f)
+void HCWidget::makeVisibleToUser()
 {
-    f ();
     WApplication::instance()->triggerUpdate();
 }
