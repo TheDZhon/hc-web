@@ -29,6 +29,17 @@ public:
     }
 };
 
+class HCAppFactory {
+public:
+	explicit HCAppFactory (HCMaster & hmaster): hmaster_(hmaster) {}
+	
+	WApplication * operator ()(const WEnvironment & env) const {
+		return new HCApplication (env, hmaster_);
+	}
+private:
+	HCMaster & hmaster_;
+};
+
 int main(int argc, char **argv)
 {
     WServer server(argv[0]);
@@ -38,12 +49,10 @@ int main(int argc, char **argv)
 
     server.setServerConfiguration(argc, argv, WTHTTP_CONFIGURATION);
 
-    server.addEntryPoint(Wt::Application, [&hc_master](const WEnvironment & env) {
-        return new HCApplication(env, hc_master);
-    });
+    server.addEntryPoint(Wt::Application, HCAppFactory (hc_master));
 
     if (server.start()) {
-        auto sig = WServer::waitForShutdown();
+        int sig = WServer::waitForShutdown();
         std::cerr << "Shutting down: (signal = " << sig << ")" << std::endl;
         server.stop();
     }

@@ -1,9 +1,9 @@
 #ifndef HC_MASTER__H_
 #define HC_MASTER__H_
 
-#include <functional>
-#include <unordered_map>
-#include <mutex>
+#include <boost/function.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/unordered_map.hpp>
 
 #include "hc_cntl.hpp"
 
@@ -24,8 +24,8 @@ public:
 public /*slots*/:
     void changeSpeed (int new_speed);
 private:
-    typedef std::function <void (HCWidget* f)> Func1;
-    typedef std::unordered_map<HCWidget*, std::string> Sessions;
+    typedef boost::function <void (HCWidget* f)> Func1;
+    typedef boost::unordered_map<HCWidget*, std::string> Sessions;
 
     void handleData(const hc_data_t &);
     void handleError(const std::string &);
@@ -37,7 +37,7 @@ private:
     HCController hc_cntl_;
     Sessions sess_;
     
-    mutable std::recursive_mutex mut_;
+    mutable boost::recursive_mutex mut_;
 };
 
 #endif // HC_MASTER__H_

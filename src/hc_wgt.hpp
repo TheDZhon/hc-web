@@ -16,7 +16,7 @@ public:
     void displayData (const hc_data_t & d);
     void displayError (const std::string & err);
 private:
-    typedef std::function<void (void)> Func0;
+    typedef boost::function<void (void)> Func0;
   
     void makeVisibleToUser (Func0 f);
   

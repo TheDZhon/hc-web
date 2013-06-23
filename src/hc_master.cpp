@@ -6,10 +6,11 @@
 #include "hc_wgt.hpp"
 
 using namespace ::Wt;
+using namespace ::boost;
 
 namespace
 {
-typedef std::lock_guard<std::recursive_mutex> MutexGuard;
+typedef boost::lock_guard<boost::recursive_mutex> MutexGuard;
 }
 
 HCMaster::HCMaster(Wt::WServer &serv):
@@ -23,13 +24,7 @@ HCMaster::HCMaster(Wt::WServer &serv):
 
 void HCMaster::start()
 {
-    hc_cntl_.start(
-    [this](const hc_data_t & d) {
-        handleData(d);
-    },
-    [this](const std::string & s) {
-        handleError(s);
-    });
+    hc_cntl_.start(boost::bind (&HCMaster::handleData, this, _1), boost::bind (&HCMaster::handleError, this, _1));
 }
 
 void HCMaster::reg(HCWidget *wgt)
@@ -53,16 +48,12 @@ void HCMaster::changeSpeed (int new_speed)
 
 void HCMaster::handleData(const hc_data_t &d)
 {
-    handleImpl([ = ](HCWidget * w) {
-        w->displayData(d);
-    });
+    handleImpl(boost::bind (&HCWidget::displayData, _1, d));
 }
 
 void HCMaster::handleError(const std::string &err)
 {
-    handleImpl([ = ](HCWidget * w) {
-        w->displayError(err);
-    });
+    handleImpl(boost::bind (&HCWidget::displayError, _1, err));
     
     std::cerr << err << std::endl;
 }
@@ -73,13 +64,14 @@ void HCMaster::handleImpl(Func1 f1)
 
     WApplication *app = WApplication::instance();
 
-    for (auto w: sess_) {
-        if (app && app->sessionId() == w.second) {
-            f1(w.first);
+	for (Sessions::iterator it = sess_.begin();
+		 it != sess_.end();
+		++it)
+	{
+		if (app && app->sessionId() == it->second) {
+            f1(it->first);
         } else {
-            serv_.post(w.second, [ = ]() {
-                f1(w.first);
-            });
+            serv_.post(it->second, boost::bind (f1, it->first));
         }
-    }
+	}
 }

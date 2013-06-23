@@ -1,9 +1,9 @@
 #ifndef HC_CNTL_H__
 #define HC_CNTL_H__
 
-#include <functional>
-#include <memory>
-#include <thread>
+#include <boost/function.hpp>
+#include <boost/thread.hpp>
+#include <boost/scoped_ptr.hpp>
 
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/serial_port.hpp>
@@ -20,8 +20,8 @@ class HCController:
     public Wt::WObject
 {
 public:
-    typedef std::function<void (const hc_data_t &)> RcvdCb;
-    typedef std::function<void (const std::string &err)> ErrCb;
+    typedef boost::function<void (const hc_data_t &)> RcvdCb;
+    typedef boost::function<void (const std::string &err)> ErrCb;
 
     HCController(WObject *parent = 0);
     ~HCController();
@@ -31,14 +31,16 @@ public:
     void setSpeed(int percents);
 private:
     void asyncRead();
+	
+	void handleWrite(boost::shared_ptr<std::string> buf, const boost::system::error_code &ec, size_t bytes);
     void handleRead(const boost::system::error_code &ec, size_t bytes);
 
     as::io_service io_;
     as::serial_port sport_;
     as::streambuf read_buf_;
 
-    std::unique_ptr<as::io_service::work> work_;
-    std::thread worker_;
+    boost::scoped_ptr<as::io_service::work> work_;
+    boost::thread worker_;
 
     RcvdCb cb_;
     ErrCb err_;

@@ -1,7 +1,10 @@
 #include "hc_cntl.hpp"
 
-#include <regex>
 #include <stdexcept>
+
+#include <boost/regex.hpp>
+
+#include <boost/lexical_cast.hpp>
 
 #include <boost/asio/write.hpp>
 #include <boost/asio/read_until.hpp>
@@ -16,8 +19,7 @@ namespace
 const size_t kBaudRate = 9600U;
 const char kPortName[] = "/dev/ttyUSB0";
 const char kTermSymbol = '|';
-//const std::regex kReadRe("H:(\\d+)T:(\\d+)S:(\\d+)");
-const std::regex kReadRe("H");
+const boost::regex kReadRe("H:(\\d+)T:(\\d+)S:(\\d+)");
 
 enum RcvIndxs {
     kHumidity = 1,
@@ -63,33 +65,31 @@ void HCController::start(const HCController::RcvdCb &r, const HCController::ErrC
         return;
     }
 
-
-    worker_ = std::thread([&]() {
-        io_.run();
-    });
+    worker_ = boost::thread(boost::bind (&as::io_service::run, boost::ref(io_)));
 
     asyncRead();
 }
 
 void HCController::setSpeed(int level)
 {
-    auto && s = std::to_string(level) + kTermSymbol;
-    const auto s_ptr = std::make_shared<std::string> (std::move(s));
+    const std::string & s = boost::lexical_cast<std::string>(level) + kTermSymbol;
+    const boost::shared_ptr<std::string> s_ptr = boost::make_shared<std::string> (s);
 
     as::async_write(sport_, as::buffer(s_ptr->data(), s_ptr->size()),
-    [s_ptr, this](const error_code & ec, size_t bytes) {
-        if (ec || (s_ptr->size() != bytes)) {
-            err_("Can't transmit speed to serial port");
-        }
-    });
+		boost::bind (&HCController::handleWrite, this, s_ptr, _1, _2));
 }
 
 void HCController::asyncRead()
 {
     as::async_read_until(sport_, read_buf_, kTermSymbol,
-    [&](const error_code & ec, size_t bytes) {
-        handleRead(ec, bytes);
-    });
+		boost::bind (&HCController::handleRead, this, _1, _2));
+}
+
+void HCController::handleWrite(boost::shared_ptr<std::string> buf, const error_code& ec, size_t bytes)
+{
+	if (ec || (buf->size() != bytes)) {
+		err_("Can't transmit speed to serial port");
+	}
 }
 
 void HCController::handleRead(const error_code &ec, size_t bytes)
@@ -101,13 +101,13 @@ void HCController::handleRead(const error_code &ec, size_t bytes)
         std::string s;
         is >> s;
 
-        std::smatch sm;
-        if (std::regex_match(s, sm, kReadRe)) {
+        boost::smatch sm;
+        if (boost::regex_match(s, sm, kReadRe)) {
             hc_data_t data;
 
-            data.humidity = std::stod(sm[kHumidity]);
-            data.temperature = std::stod(sm[kTemperature]);
-            data.speed = std::stoi(sm[kSpeed]);
+            data.humidity = boost::lexical_cast<double>(sm[kHumidity]);
+            data.temperature = boost::lexical_cast<double>(sm[kTemperature]);
+            data.speed = boost::lexical_cast<int>(sm[kSpeed]);
 
             cb_(data);
         } else {
