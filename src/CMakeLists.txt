@@ -1,5 +1,20 @@
 # CMake build script
 
+# --> Boost
+
+IF (WIN32)
+  SET (Boost_USE_STATIC_LIBS ON)
+ENDIF (WIN32)
+
+SET (Boost_USE_MULTITHREADED ON)
+SET (Boost_ADDITIONAL_VERSIONS "1.47" "1.47.1" "1.48" "1.49" "1.50" "1.51" "1.52" "1.53" "1.54")
+FIND_PACKAGE (Boost 1.49.0 COMPONENTS system signals thread regex date_time REQUIRED)
+INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+
+# --> Threads support
+
+FIND_PACKAGE (Threads)
+
 SET (WT_CONNECTOR "wthttp" CACHE STRING "Connector for wt (wthttp or wtfcgi)")
 
 SET (HC_SOURCES
@@ -15,6 +30,16 @@ SET (HC_HEADERS
 
 SET (WT_PROJECT_TARGET hc_001.wt)
 
+# Additional definitions
+
+IF(WIN32)
+  ADD_DEFINITIONS(-D_WIN32_WINNT=0x0502)
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
+ENDIF(WIN32)
+
 ADD_EXECUTABLE (${WT_PROJECT_TARGET} ${HC_SOURCES} ${HC_HEADERS})
 
-TARGET_LINK_LIBRARIES (${WT_PROJECT_TARGET} ${WT_CONNECTOR} wt boost_system boost_signals boost_thread boost_regex)
+TARGET_LINK_LIBRARIES (${WT_PROJECT_TARGET} 
+  ${WT_CONNECTOR} wt 
+  ${Boost_LIBRARIES}
+  ${CMAKE_THREAD_LIBS_INIT})
