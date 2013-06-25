@@ -125,7 +125,17 @@ void HCWidget::displayData(const hc_data_t &d)
 {
     speed_feedback_lineedit_->setText(boost::lexical_cast<std::string>(d.speed));
 
-    last_ind_ = (++last_ind_) % kQuants;
+	if (last_ind_ != (kQuants - 1)) {
+		last_ind_ = ++last_ind_;
+	} else {
+		for (int i = 1; i < kQuants; ++i)
+		{
+			graph_data_model_->setData (i - 1, kTimeAxis, graph_data_model_->data (graph_data_model_->index(i, kTimeAxis)));
+			graph_data_model_->setData (i - 1, kTemperatureAxis, graph_data_model_->data (graph_data_model_->index(i, kTemperatureAxis)));
+			graph_data_model_->setData (i - 1, kHumidityAxis, graph_data_model_->data (graph_data_model_->index(i, kHumidityAxis)));
+			graph_data_model_->setData (i - 1, kSpeedAxis, graph_data_model_->data (graph_data_model_->index(i, kSpeedAxis)));
+		}
+	}
 
     graph_data_model_->setData(last_ind_, kTimeAxis, WTime::currentServerTime());
     graph_data_model_->setData(last_ind_, kTemperatureAxis, d.temperature);

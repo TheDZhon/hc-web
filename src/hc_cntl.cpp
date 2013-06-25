@@ -22,7 +22,7 @@ namespace
 const size_t kBaudRate = 9600U;
 const char kPortName[] = "/dev/ttyUSB0";
 const char kTermSymbol = '|';
-const boost::regex kReadRe("H:(\\d+)T:(\\d+)S:(\\d+)");
+const boost::regex kReadRe ("H:\\((\\d+\\.\\d+)\\)T:\\((\\d+\\.\\d+)\\)S:\\((\\d+)\\)");
 
 enum RcvIndxs {
     kHumidity = 1,
@@ -77,7 +77,8 @@ void HCController::start(const HCController::RcvdCb &r, const HCController::ErrC
 
 void HCController::setSpeed(int level)
 {
-    const std::string &s = boost::lexical_cast<std::string>(level) + kTermSymbol;
+    std::string s;
+	s += char (level);
     const boost::shared_ptr<std::string> s_ptr = boost::make_shared<std::string> (s);
 
     as::async_write(sport_, as::buffer(s_ptr->data(), s_ptr->size()),
@@ -111,9 +112,9 @@ void HCController::handleRead(const error_code &ec, size_t bytes)
         std::istream is(&read_buf_);
         std::string s;
         is >> s;
-
+		
         boost::smatch sm;
-        if (boost::regex_match(s, sm, kReadRe)) {
+        if (boost::regex_search(s, sm, kReadRe)) {
             hc_data_t data;
 
             data.humidity = boost::lexical_cast<double>(sm[kHumidity]);
