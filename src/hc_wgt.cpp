@@ -12,15 +12,19 @@
 #include <Wt/WPanel>
 #include <Wt/WTime>
 #include <Wt/WAnimation>
+#include <Wt/WTextArea>
 
 #include <Wt/Chart/WCartesianChart>
 
 using namespace ::Wt;
 using namespace ::Wt::Chart;
 
+using namespace ::std;
+
 namespace
 {
 const size_t kQuants = 30;
+const size_t kMaxLogRows = 100;
 
 enum Axes {
     kTimeAxis,
@@ -30,6 +34,21 @@ enum Axes {
 
     kAxesCnt
 };
+
+WString hc_data_to_wtstring (const hc_data_t & data) 
+{
+	const int h_integral = data.humidity;
+	const int t_integral = data.temperature;
+	
+	const int h_partial = (data.humidity - h_integral) * 10 + 0.5;
+	const int t_partial = (data.temperature - t_integral) * 10 + 0.5;
+	
+	return WString ("Humidity: {1}.{2}%; Temperature: {3}.{4}C; Fan Speed: {5}%")
+		.arg(h_integral).arg(h_partial)
+		.arg(t_integral).arg(t_partial)
+		.arg(data.speed);
+}
+
 }
 
 HCWidget::HCWidget(HCMaster &hc_master, Wt::WContainerWidget *parent):
@@ -37,7 +56,9 @@ HCWidget::HCWidget(HCMaster &hc_master, Wt::WContainerWidget *parent):
     hc_master_(hc_master),
     speed_feedback_lineedit_(0),
     graph_data_model_(0),
-    last_ind_(0)
+    log_textarea_(0),
+    last_ind_(0),
+    last_log_ind_(0)
 {
     WVBoxLayout *top_level_layout = new WVBoxLayout;
 
@@ -75,7 +96,7 @@ HCWidget::HCWidget(HCMaster &hc_master, Wt::WContainerWidget *parent):
     speed_series.setShadow(WShadow(3, 3, WColor(0, 0, 0, 127), 3));
     plot->addSeries(speed_series);
 
-    plot->resize(800, 200); // WPaintedWidget must be given explicit size
+    plot->resize(1200, 600); // WPaintedWidget must be given explicit size
 
     plot->setMargin(10, Top | Bottom);             // add margin vertically
     plot->setMargin(WLength::Auto, Left | Right);  // center horizontally
@@ -109,6 +130,21 @@ HCWidget::HCWidget(HCMaster &hc_master, Wt::WContainerWidget *parent):
     WContainerWidget *speed_control_container = new WContainerWidget;
     speed_control_container->setLayout(control_layout);
     speed_control_panel->setCentralWidget(speed_control_container);
+	
+	WPanel * log_panel = new WPanel;
+	WContainerWidget * log_container = new WContainerWidget;
+	WHBoxLayout * log_layout = new WHBoxLayout;
+	
+	log_panel->setCollapsible (true);
+	log_panel->setCollapsed (true);
+	log_panel->setTitle ("Log");
+	log_textarea_ = new WTextArea; 
+	log_layout->addWidget (log_textarea_);
+	log_container->setLayout (log_layout);	
+	log_panel->setCentralWidget (log_container);
+	
+	top_level_layout->addWidget (log_panel);
+	
     setLayout(top_level_layout);
 
     hc_master_.reg(this);
@@ -141,15 +177,30 @@ void HCWidget::displayData(const hc_data_t &d)
     graph_data_model_->setData(last_ind_, kTemperatureAxis, d.temperature);
     graph_data_model_->setData(last_ind_, kHumidityAxis, d.humidity);
     graph_data_model_->setData(last_ind_, kSpeedAxis, d.speed);
+	
+	log (kInfo, hc_data_to_wtstring (d));
 
     makeVisibleToUser();
 }
 
-void HCWidget::displayError(const std::string &err)
+void HCWidget::displayError(const string &err)
 {
-    //TODO(DZhon): Provide convenient way for error reporting
+    log (kError, err);
 
     makeVisibleToUser();
+}
+
+void HCWidget::log(HCWidget::LogLevel l, const WString &mess)
+{
+	++last_log_ind_;
+	
+	if (last_log_ind_ >= kMaxLogRows) 
+	{
+		last_log_ind_ = 0;
+		log_textarea_->setText("");
+	}
+	
+	log_textarea_->setText (log_textarea_->text() + "[" +  WTime::currentServerTime().toString() + "] " + mess + "\n");
 }
 
 void HCWidget::makeVisibleToUser()
