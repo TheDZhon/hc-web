@@ -19,10 +19,10 @@ using namespace ::boost::posix_time;
 
 namespace
 {
-const size_t kBaudRate = 9600U;
-const char kPortName[] = "/dev/ttyUSB0";
-const char kTermSymbol = '|';
-const boost::regex kReadRe ("H:\\((\\d+\\.\\d+)\\)T:\\((\\d+\\.\\d+)\\)S:\\((\\d+)\\)");
+const size_t kMaxErrorsCnt = 5;
+const char kWriteTermSymbol = '|';
+const char kReadTermSymbol = '^';
+const boost::regex kReadRe("H:\\((\\d+\\.\\d+)\\)T:\\((\\d+\\.\\d+)\\)S:\\((\\d+)\\)");
 
 enum RcvIndxs {
     kHumidity = 1,
@@ -51,34 +51,35 @@ HCController::~HCController()
     worker_.join();
 }
 
-void HCController::start(const HCController::RcvdCb &r, const HCController::ErrCb &err)
+void HCController::start(size_t baud_rate, const std::string &port_name, const HCController::RcvdCb &r, const HCController::ErrCb &err)
 {
     cb_ = r;
     err_ = err;
 
     error_code ec;
-    sport_.open(kPortName, ec);
+    sport_.open(port_name, ec);
     if (ec) {
-        err_("Can't open port!");
+        err_("Can't open port " + port_name);
         return;
     }
 
-    sport_.set_option(as::serial_port_base::baud_rate(kBaudRate), ec);
+    sport_.set_option(as::serial_port_base::baud_rate(baud_rate), ec);
     if (ec) {
-        err_("Can't set port speed!");
+        err_("Can't set port speed " + lexical_cast<string>(baud_rate));
         return;
     }
 
     worker_ = boost::thread(boost::bind(&as::io_service::run, boost::ref(io_)));
 
     asyncRead();
-	startTimer();
+    startTimer();
 }
 
 void HCController::setSpeed(int level)
 {
     std::string s;
-	s += char (level);
+    s += char(level);
+	s += kWriteTermSymbol;
     const boost::shared_ptr<std::string> s_ptr = boost::make_shared<std::string> (s);
 
     as::async_write(sport_, as::buffer(s_ptr->data(), s_ptr->size()),
@@ -87,7 +88,7 @@ void HCController::setSpeed(int level)
 
 void HCController::asyncRead()
 {
-    as::async_read_until(sport_, read_buf_, kTermSymbol,
+    as::async_read_until(sport_, read_buf_, kReadTermSymbol,
                          boost::bind(&HCController::handleRead, this, _1, _2));
 }
 
@@ -107,12 +108,14 @@ void HCController::handleWrite(boost::shared_ptr<std::string> buf, const error_c
 void HCController::handleRead(const error_code &ec, size_t bytes)
 {
     if ((!ec) && (bytes > 0)) {
+		err_counter_ = 0;
+		
         read_buf_.commit(bytes);
 
         std::istream is(&read_buf_);
         std::string s;
         is >> s;
-		
+
         boost::smatch sm;
         if (boost::regex_search(s, sm, kReadRe)) {
             hc_data_t data;
@@ -126,15 +129,19 @@ void HCController::handleRead(const error_code &ec, size_t bytes)
             err_("Mallformed string from serial port");
         }
     } else {
+		++err_counter_;
+		
         err_("Can't read data from serial port");
     }
 
-    asyncRead();
+    if (err_counter_ < kMaxErrorsCnt) {
+		asyncRead();
+	}
 }
 
 void HCController::handleTimer(const error_code &ec)
 {
-	//TODO(DZhon): Timed actions can be performed here
-	
-	startTimer();
+    //TODO(DZhon): Timed actions can be performed here
+
+    startTimer();
 }

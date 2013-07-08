@@ -1,3 +1,5 @@
+#include <boost/program_options.hpp>
+
 // Wt
 #include <Wt/WApplication>
 #include <Wt/WContainerWidget>
@@ -9,6 +11,8 @@
 
 using namespace ::std;
 using namespace ::Wt;
+
+namespace po = ::boost::program_options;
 
 class HCApplication: public WApplication
 {
@@ -43,10 +47,25 @@ private:
 
 int main(int argc, char **argv)
 {
+	size_t baud_rate;
+	string port_name;
+	
+	po::options_description opts ("HC001 web-daemon options");
+	opts.add_options()
+		("baud_rate", po::value<size_t> (&baud_rate)->default_value(9600), "COM port baud rate")
+		("port_name", po::value<string> (&port_name)->default_value("/dev/ttyUSB0"), "COM port name")
+	;
+	po::variables_map vm;
+	
+	po::parsed_options parsed = po::parse_config_file<char> ("port.cfg", opts);
+	po::store (parsed, vm);
+	
+	po::notify (vm);
+		
     WServer server(argv[0]);
 
     HCMaster hc_master(server);
-    hc_master.start();
+    hc_master.start(baud_rate, port_name);
 
     server.setServerConfiguration(argc, argv, WTHTTP_CONFIGURATION);
 

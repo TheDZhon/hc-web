@@ -3,28 +3,37 @@
 #include <Wt/WApplication>
 #include <Wt/WServer>
 
+#include <boost/lexical_cast.hpp>
+
 #include "hc_wgt.hpp"
 
 using namespace ::Wt;
 using namespace ::boost;
+using namespace ::std;
 
 namespace
 {
 typedef boost::lock_guard<boost::recursive_mutex> MutexGuard;
+
+const size_t kMaxErrosBuf = 100;
 }
 
 HCMaster::HCMaster(Wt::WServer &serv):
     serv_(serv),
     hc_cntl_(),
     sess_(),
+    error_buf_(kMaxErrosBuf),
     mut_()
 {
 
 }
 
-void HCMaster::start()
+void HCMaster::start(size_t baud_rate, const string &port_name)
 {
-    hc_cntl_.start(boost::bind(&HCMaster::handleData, this, _1), boost::bind(&HCMaster::handleError, this, _1));
+    hc_cntl_.start(baud_rate,
+		port_name,
+		boost::bind(&HCMaster::handleData, this, _1), 
+		boost::bind(&HCMaster::handleError, this, _1));
 }
 
 void HCMaster::reg(HCWidget *wgt)
@@ -32,6 +41,15 @@ void HCMaster::reg(HCWidget *wgt)
     MutexGuard _(mut_);
 
     sess_[wgt] = WApplication::instance()->sessionId();
+	
+	for (ErrorsBuf::iterator it = error_buf_.begin();
+		 it != error_buf_.end();
+		++it) 
+	{
+		wgt->displayError (*it);
+	}
+	
+	error_buf_.clear();
 }
 
 void HCMaster::unreg(HCWidget *wgt)
@@ -54,8 +72,9 @@ void HCMaster::handleData(const hc_data_t &d)
 void HCMaster::handleError(const std::string &err)
 {
     handleImpl(boost::bind(&HCWidget::displayError, _1, err));
-
-    std::cerr << err << std::endl;
+	
+	MutexGuard _ (mut_);	
+	error_buf_.push_back (err);
 }
 
 void HCMaster::handleImpl(Func1 f1)

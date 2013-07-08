@@ -24,15 +24,15 @@ public:
     typedef boost::function<void (const hc_data_t &)> RcvdCb;
     typedef boost::function<void (const std::string &err)> ErrCb;
 
-    HCController(WObject *parent = 0);
+    explicit HCController(WObject *parent = 0);
     ~HCController();
 
-    void start(const RcvdCb &r, const ErrCb &err);
+    void start(size_t baud_rate, const std::string &port_name, const RcvdCb &r, const ErrCb &err);
 
     void setSpeed(int percents);
 private:
     void asyncRead();
-	void startTimer();
+    void startTimer();
 
     void handleWrite(boost::shared_ptr<std::string> buf, const boost::system::error_code &ec, size_t bytes);
     void handleRead(const boost::system::error_code &ec, size_t bytes);
@@ -49,6 +49,8 @@ private:
     ErrCb err_;
 
     as::deadline_timer timer_;
+	
+	size_t err_counter_;
 };
 
 #endif // HC_CNTL_H__
