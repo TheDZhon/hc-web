@@ -8,7 +8,7 @@ ENDIF (WIN32)
 
 SET (Boost_USE_MULTITHREADED ON)
 SET (Boost_ADDITIONAL_VERSIONS "1.47" "1.47.1" "1.48" "1.49" "1.50" "1.51" "1.52" "1.53" "1.54")
-FIND_PACKAGE (Boost 1.49.0 COMPONENTS system signals thread regex date_time REQUIRED)
+FIND_PACKAGE (Boost 1.49.0 COMPONENTS system signals thread regex date_time program_options REQUIRED)
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 
 # --> Threads support
