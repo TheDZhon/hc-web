@@ -2,6 +2,8 @@
 
 #include <stdexcept>
 
+#include <boost/make_shared.hpp>
+
 #include <boost/regex.hpp>
 
 #include <boost/lexical_cast.hpp>
