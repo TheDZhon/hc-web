@@ -30,8 +30,8 @@ void HCMaster::start (size_t baud_rate, const string& port_name)
 
 	hc_cntl_.start (baud_rate,
 					port_name,
-					boost::bind (&HCMaster::handleData, this, _1),
-					boost::bind (&HCMaster::handleError, this, _1));
+					[this] (const hc_data_t& hcdata) { handleData (hcdata); },
+					[this] (const string& err_s) { handleError(err_s); });
 
 }
 
@@ -64,12 +64,12 @@ void HCMaster::changeSpeed (int new_speed)
 
 void HCMaster::handleData (const hc_data_t& d)
 {
-	handleImpl (boost::bind (&HCWidget::displayData, _1, d));
+	handleImpl ([d] (HCWidget * hcw) { hcw->displayData (d); });
 }
 
 void HCMaster::handleError (const std::string& err)
 {
-	handleImpl (boost::bind (&HCWidget::displayError, _1, err));
+	handleImpl ([err] (HCWidget * hcw) { hcw->displayError(err); });
 
 	MutexGuard _ (mut_);
 	error_buf_.push_back (err);
@@ -87,7 +87,7 @@ void HCMaster::handleImpl (Func1 f1)
 		if (app && app->sessionId() == it->second) {
 			f1 (it->first);
 		} else {
-			serv_.post (it->second, boost::bind (f1, it->first));
+			serv_.post (it->second, [=] () { f1 (it->first); });
 		}
 	}
 }
