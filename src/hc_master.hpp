@@ -1,9 +1,10 @@
 #ifndef HC_MASTER__H_
 #define HC_MASTER__H_
 
-#include <boost/function.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/unordered_map.hpp>
+#include <functional>
+#include <unordered_map>
+#include <mutex>
+
 #include <boost/circular_buffer.hpp>
 
 #include "hc_cntl.hpp"
@@ -11,38 +12,38 @@
 class HCWidget;
 namespace Wt
 {
-class WServer;
+	class WServer;
 }
 
 class HCMaster
 {
 public:
-	explicit HCMaster(Wt::WServer &serv);
+	explicit HCMaster (Wt::WServer& serv);
 
-    void start(size_t baud_rate, const std::string &port_name);
+	void start (size_t baud_rate, const std::string& port_name);
 
-    void reg(HCWidget *);
-    void unreg(HCWidget *);
+	void reg (HCWidget*);
+	void unreg (HCWidget*);
 public /*slots*/:
-    void changeSpeed(int new_speed);
+	void changeSpeed (int new_speed);
 private:
-    typedef boost::function <void (HCWidget *f)> Func1;
-    typedef boost::unordered_map<HCWidget *, std::string> Sessions;
+	typedef std::function <void (HCWidget* f) > Func1;
+	typedef std::unordered_map<HCWidget*, std::string> Sessions;
 	typedef boost::circular_buffer<std::string> ErrorsBuf;
 
-    void handleData(const hc_data_t &);
-    void handleError(const std::string &);
+	void handleData (const hc_data_t&);
+	void handleError (const std::string&);
 
-    void handleImpl(Func1);
+	void handleImpl (Func1);
 
-    Wt::WServer &serv_;
+	Wt::WServer& serv_;
 
-    HCController hc_cntl_;
-    Sessions sess_;
-	
+	HCController hc_cntl_;
+	Sessions sess_;
+
 	ErrorsBuf error_buf_;
 
-    mutable boost::recursive_mutex mut_;
+	mutable std::recursive_mutex mut_;
 };
 
 #endif // HC_MASTER__H_

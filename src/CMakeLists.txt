@@ -7,8 +7,7 @@ IF (WIN32)
 ENDIF (WIN32)
 
 SET (Boost_USE_MULTITHREADED ON)
-SET (Boost_ADDITIONAL_VERSIONS "1.47" "1.47.1" "1.48" "1.49" "1.50" "1.51" "1.52" "1.53" "1.54")
-FIND_PACKAGE (Boost 1.49.0 COMPONENTS system signals thread regex date_time program_options REQUIRED)
+FIND_PACKAGE (Boost COMPONENTS system REQUIRED)
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 
 # --> Threads support
@@ -28,7 +27,7 @@ SET (HC_HEADERS
   hc_cntl.hpp
   hc_master.hpp)
 
-SET (WT_PROJECT_TARGET hc_001.wt)
+SET (WT_PROJECT_TARGET hc-web.wt)
 
 # Additional definitions
 
