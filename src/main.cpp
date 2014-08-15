@@ -19,12 +19,18 @@ namespace
 {
 	const regex kKeyValRegex ("^[\\s]*([:alpha:][\\w]*)[\\s]*=[\\s]*([\\w/]+)[\\s]*$");
 
-	enum kRegExIndexes : int {
+	enum class RegExIndexes : size_t
+	{
 		kWhole = 0,
 		kKey = 1,
 		kVal = 2,
 		kCnt = kVal + 1
 	};
+
+	inline size_t size_t_REI_cast (RegExIndexes r)
+	{
+		return static_cast<size_t> (r);
+	}
 }
 
 class HCApplication: public WApplication
@@ -66,7 +72,7 @@ template<typename T> T readOrDefault (const ParamsMap& p, const string& key, T d
 	if (p.count (key) < 1) { return def_val; }
 
 	T ret;
-	const string& val = p.find (key)->second;
+	const auto& val = p.find (key)->second;
 	istringstream istr (val);
 	istr >> ret;
 
@@ -82,8 +88,8 @@ int main (int argc, char** argv)
 
 		for (string line; getline (opts_fh, line);) {
 			smatch matched;
-			if (regex_match (line, matched, kKeyValRegex) && (matched.size () == kCnt)) {
-				params[matched[kKey]] = matched[kVal];
+			if (regex_match (line, matched, kKeyValRegex) && (matched.size () == size_t_REI_cast (RegExIndexes::kCnt))) {
+				params[matched[size_t_REI_cast (RegExIndexes::kKey)]] = matched[size_t_REI_cast (RegExIndexes::kVal)];
 			}
 		}
 	}
@@ -105,9 +111,10 @@ int main (int argc, char** argv)
 	server.addEntryPoint (Wt::Application, HCAppFactory (hc_master));
 
 	if (server.start()) {
-		int sig = WServer::waitForShutdown();
+		const auto sig = WServer::waitForShutdown();
 		std::cerr << "Shutting down: (signal = " << sig << ")" << std::endl;
 		server.stop();
+		return EXIT_SUCCESS;
 	}
 
 	return EXIT_FAILURE;

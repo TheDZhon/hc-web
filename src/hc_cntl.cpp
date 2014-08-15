@@ -85,13 +85,13 @@ void HCController::setSpeed (int level)
 
 void HCController::asyncRead()
 {
-	as::async_read_until (sport_, read_buf_, kReadTermSymbol, [this] (const error_code& ec, size_t bytes) { handleRead(ec, bytes); });
+	as::async_read_until (sport_, read_buf_, kReadTermSymbol, [this] (const error_code & ec, size_t bytes) { handleRead (ec, bytes); });
 }
 
 void HCController::startTimer()
 {
 	timer_.expires_from_now (seconds (kTimerTimeoutS));
-	timer_.async_wait ([this] (const error_code& ec) { handleTimer(ec); });
+	timer_.async_wait ([this] (const error_code & ec) { handleTimer (ec); });
 }
 
 void HCController::handleWrite (shared_ptr<std::string> buf, const error_code& ec, size_t bytes)

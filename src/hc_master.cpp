@@ -12,7 +12,7 @@ namespace
 {
 	typedef lock_guard<recursive_mutex> MutexGuard;
 
-	const size_t kMaxErrosBuf = 100;
+	const auto kMaxErrosBuf = 100U;
 }
 
 HCMaster::HCMaster (Wt::WServer& serv) :
@@ -30,8 +30,8 @@ void HCMaster::start (size_t baud_rate, const string& port_name)
 
 	hc_cntl_.start (baud_rate,
 					port_name,
-					[this] (const hc_data_t& hcdata) { handleData (hcdata); },
-					[this] (const string& err_s) { handleError(err_s); });
+	[this] (const hc_data_t& hcdata) { handleData (hcdata); },
+	[this] (const string & err_s) { handleError (err_s); });
 
 }
 
@@ -41,11 +41,7 @@ void HCMaster::reg (HCWidget* wgt)
 
 	sess_[wgt] = WApplication::instance()->sessionId();
 
-	for (ErrorsBuf::iterator it = error_buf_.begin();
-		 it != error_buf_.end();
-		 ++it) {
-		wgt->displayError (*it);
-	}
+	for (auto e : error_buf_) { wgt->displayError (e); }
 
 	error_buf_.clear();
 }
@@ -69,7 +65,7 @@ void HCMaster::handleData (const hc_data_t& d)
 
 void HCMaster::handleError (const std::string& err)
 {
-	handleImpl ([err] (HCWidget * hcw) { hcw->displayError(err); });
+	handleImpl ([err] (HCWidget * hcw) { hcw->displayError (err); });
 
 	MutexGuard _ (mut_);
 	error_buf_.push_back (err);
@@ -79,15 +75,13 @@ void HCMaster::handleImpl (Func1 f1)
 {
 	MutexGuard _ (mut_);
 
-	WApplication* app = WApplication::instance();
+	auto app = WApplication::instance();
 
-	for (Sessions::iterator it = sess_.begin();
-		 it != sess_.end();
-		 ++it) {
-		if (app && app->sessionId() == it->second) {
-			f1 (it->first);
+	for (auto && s : sess_) {
+		if (app && app->sessionId() == s.second) {
+			f1 (s.first);
 		} else {
-			serv_.post (it->second, [=] () { f1 (it->first); });
+			serv_.post (s.second, [ = ] () { f1 (s.first); });
 		}
 	}
 }
