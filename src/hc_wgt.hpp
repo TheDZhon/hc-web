@@ -34,6 +34,8 @@ private:
 	HCMaster& hc_master_;
 
 	Wt::WLineEdit* speed_feedback_lineedit_;
+	Wt::WLineEdit* heat_feedback_lineedit_;
+
 	Wt::WStandardItemModel* graph_data_model_;
 	Wt::WTextArea* log_textarea_;
 

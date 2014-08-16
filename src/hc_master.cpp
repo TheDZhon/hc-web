@@ -58,6 +58,16 @@ void HCMaster::changeSpeed (int new_speed)
 	hc_cntl_.setSpeed (new_speed);
 }
 
+void HCMaster::changeHeat (int new_heat)
+{
+	hc_cntl_.setHeat (new_heat);
+}
+
+void HCMaster::refreshWater()
+{
+	hc_cntl_.refreshWater();
+}
+
 void HCMaster::handleData (const hc_data_t& d)
 {
 	handleImpl ([d] (HCWidget * hcw) { hcw->displayData (d); });

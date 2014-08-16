@@ -8,6 +8,7 @@
 #include <boost/asio/serial_port.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/concept_check.hpp>
 
 #include <Wt/WObject>
 #include <Wt/WTimer>
@@ -29,7 +30,10 @@ public:
 	void start (size_t baud_rate, const std::string& port_name, const RcvdCb& r, const ErrCb& err);
 
 	void setSpeed (int percents);
+	void setHeat (int percents);
+	void refreshWater ();
 private:
+	void prepareSend (const std::string& data);
 	void asyncRead();
 	void startTimer();
 
@@ -44,12 +48,13 @@ private:
 	std::unique_ptr<as::io_service::work> work_;
 	std::thread worker_;
 
+	size_t baud_rate_;
+	std::string port_name_;
+
 	RcvdCb cb_;
 	ErrCb err_;
 
-	as::steady_timer timer_;
-
-	size_t err_counter_;
+	as::steady_timer deadline_timer_;
 };
 
 #endif // HC_CNTL_H__

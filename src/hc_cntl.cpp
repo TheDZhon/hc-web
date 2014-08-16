@@ -14,19 +14,23 @@ using namespace ::boost::system;
 
 namespace
 {
-	const size_t kMaxErrorsCnt = 5;
-	const size_t kTimerTimeoutS = 5;
+	const auto kTimerTimeoutS = 10U;
+	const auto kTermSymbol = '|';
 
-	const size_t kSpeedAddition = 1;
-	const char kWriteTermSymbol = '|';
-	const char kReadTermSymbol = '^';
-	const std::regex kReadRe ("H:\\((\\d+\\.\\d+)\\)T:\\((\\d+\\.\\d+)\\)S:\\((\\d+)\\)");
+	const std::regex kReadStateRe ("H:\\((\\d+\\.\\d+)\\)T:\\((\\d+\\.\\d+)\\)S:\\((\\d+)\\)P:\\((\\d+)\\)");
 
-	enum RcvIndxs {
-		kHumidity = 1,
+	enum class RcvIndxs : size_t
+	{
+		kHumidity = 1U,
 		kTemperature,
-		kSpeed
+		kSpeed,
+		kHeat
 	};
+
+	inline size_t size_t_RI_cast (RcvIndxs i)
+	{
+		return static_cast<size_t> (i);
+	}
 }
 
 HCController::HCController (WObject* parent) :
@@ -36,8 +40,11 @@ HCController::HCController (WObject* parent) :
 	read_buf_(),
 	work_ (new as::io_service::work (io_)),
 	worker_(),
-	timer_ (io_)
+	baud_rate_ (0U),
+	port_name_(),
+	deadline_timer_ (io_)
 {
+	worker_ = thread ([this] () { io_.run(); });
 }
 
 HCController::~HCController()
@@ -51,6 +58,8 @@ HCController::~HCController()
 
 void HCController::start (size_t baud_rate, const std::string& port_name, const HCController::RcvdCb& r, const HCController::ErrCb& err)
 {
+	baud_rate_ = baud_rate;
+	port_name_ = port_name;
 	cb_ = r;
 	err_ = err;
 
@@ -67,45 +76,58 @@ void HCController::start (size_t baud_rate, const std::string& port_name, const 
 		return;
 	}
 
-	worker_ = thread ([this] () { io_.run(); });
-
 	asyncRead();
 }
 
-void HCController::setSpeed (int level)
+void HCController::setSpeed (int percents)
 {
-	std::string s;
-	s += char (level + kSpeedAddition);
-	s += kWriteTermSymbol;
-	const shared_ptr<std::string> s_ptr = make_shared<std::string> (s);
+	prepareSend (string ("S:") + to_string (percents) + kTermSymbol);
+}
 
+void HCController::setHeat (int percents)
+{
+	prepareSend (string ("P:") + to_string (percents) + kTermSymbol);
+}
+
+void HCController::refreshWater()
+{
+	prepareSend (string ("R") + kTermSymbol);
+}
+
+void HCController::prepareSend (const string& data)
+{
+	const auto s_ptr = make_shared<string> (data);
 	as::async_write (sport_, as::buffer (s_ptr->data(), s_ptr->size()),
 	[ = ] (const error_code & ec, size_t bytes) { handleWrite (s_ptr, ec, bytes); });
 }
 
 void HCController::asyncRead()
 {
-	as::async_read_until (sport_, read_buf_, kReadTermSymbol, [this] (const error_code & ec, size_t bytes) { handleRead (ec, bytes); });
+	as::async_read_until (sport_, read_buf_, kTermSymbol,
+	[this] (const error_code & ec, size_t bytes) { handleRead (ec, bytes); });
+	startTimer();
 }
 
 void HCController::startTimer()
 {
-	timer_.expires_from_now (seconds (kTimerTimeoutS));
-	timer_.async_wait ([this] (const error_code & ec) { handleTimer (ec); });
+	deadline_timer_.expires_from_now (seconds (kTimerTimeoutS));
+	deadline_timer_.async_wait ([this] (const error_code & ec) { handleTimer (ec); });
 }
 
 void HCController::handleWrite (shared_ptr<std::string> buf, const error_code& ec, size_t bytes)
 {
 	if (ec || (buf->size() != bytes)) {
-		err_ ("Can't transmit speed to serial port");
+		err_ ("Can't transmit data to serial port");
 	}
 }
 
 void HCController::handleRead (const error_code& ec, size_t bytes)
 {
-	if ( (!ec) && (bytes > 0)) {
-		err_counter_ = 0;
+	if (ec == as::error::operation_aborted) { return; }
 
+	deadline_timer_.cancel();
+
+	if ( (!ec) && (bytes > 0)) {
 		read_buf_.commit (bytes);
 
 		std::istream is (&read_buf_);
@@ -113,31 +135,31 @@ void HCController::handleRead (const error_code& ec, size_t bytes)
 		is >> s;
 
 		smatch sm;
-		if (regex_search (s, sm, kReadRe)) {
+		if (regex_search (s, sm, kReadStateRe)) {
 			hc_data_t data;
 
-			data.humidity = stod (sm[kHumidity]);
-			data.temperature = stod (sm[kTemperature]);
-			data.speed = stoi (sm[kSpeed]);
+			data.humidity = stod (sm[size_t_RI_cast (RcvIndxs::kHumidity)]);
+			data.temperature = stod (sm[size_t_RI_cast (RcvIndxs::kTemperature)]);
+			data.speed = stoi (sm[size_t_RI_cast (RcvIndxs::kSpeed)]);
+			data.heat = stoi (sm[size_t_RI_cast (RcvIndxs::kHeat)]);
 
 			cb_ (data);
 		} else {
-			err_ ("Mallformed string from serial port: " + s);
+			err_ (string ("Mallformed string from serial port: ") + s);
 		}
 	} else {
-		++err_counter_;
-
-		err_ ("Can't read data from serial port");
+		err_ (string ("Can't read data from serial port: ") + ec.message());
 	}
 
-	if (err_counter_ < kMaxErrorsCnt) {
-		asyncRead ();
-	} else {
-		startTimer ();
-	}
+	asyncRead();
 }
 
 void HCController::handleTimer (const error_code& ec)
 {
-	if (!ec) { asyncRead (); }
+	if (ec == as::error::operation_aborted) { return; }
+
+	err_ ("Serial port read timeout!");
+
+	sport_.close();
+	start (baud_rate_, port_name_, cb_, err_);
 }

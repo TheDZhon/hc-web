@@ -15,6 +15,7 @@
 #include <Wt/WTime>
 #include <Wt/WAnimation>
 #include <Wt/WTextArea>
+#include <Wt/WPushButton>
 #include <Wt/Chart/WCartesianChart>
 
 using namespace ::Wt;
@@ -33,6 +34,7 @@ namespace
 		kTemperatureAxis,
 		kHumidityAxis,
 		kSpeedAxis,
+		kHeatAxis,
 
 		kAxesCnt
 	};
@@ -54,10 +56,10 @@ namespace
 		const auto h_partial = rint ( (data.humidity - h_integral) * 10);
 		const auto t_partial = rint ( (data.temperature - t_integral) * 10);
 
-		return WString ("Humidity: {1}.{2}%; Temperature: {3}.{4}C°; Fan Speed: {5}%")
+		return WString ("Humidity: {1}.{2}%; Temperature: {3}.{4}C°; Fan Speed: {5}%; Heat Power: {6}%")
 			   .arg (h_integral).arg (h_partial)
 			   .arg (t_integral).arg (t_partial)
-			   .arg (data.speed);
+			   .arg (data.speed).arg (data.heat);
 
 		fesetround (old_round_mode);
 	}
@@ -81,6 +83,7 @@ HCWidget::HCWidget (HCMaster& hc_master, Wt::WContainerWidget* parent) :
 	graph_data_model_->setHeaderData (size_t_Axes_cast (Axes::kTemperatureAxis), WString ("Temperature"));
 	graph_data_model_->setHeaderData (size_t_Axes_cast (Axes::kHumidityAxis), WString ("Humidity"));
 	graph_data_model_->setHeaderData (size_t_Axes_cast (Axes::kSpeedAxis), WString ("Speed"));
+	graph_data_model_->setHeaderData (size_t_Axes_cast (Axes::kHeatAxis), WString ("Heat"));
 
 	auto plot = new WCartesianChart;
 	top_level_layout->addWidget (plot);
@@ -109,40 +112,64 @@ HCWidget::HCWidget (HCMaster& hc_master, Wt::WContainerWidget* parent) :
 	speed_series.setShadow (WShadow (3, 3, WColor (0, 0, 0, 127), 3));
 	plot->addSeries (speed_series);
 
+	WDataSeries heat_series (size_t_Axes_cast (Axes::kHeatAxis), CurveSeries);
+	speed_series.setShadow (WShadow (3, 3, WColor (0, 0, 0, 127), 3));
+	plot->addSeries (heat_series);
+
 	plot->resize (1200, 600); // WPaintedWidget must be given explicit size
 
 	plot->setMargin (10, Top | Bottom);            // add margin vertically
 	plot->setMargin (WLength::Auto, Left | Right); // center horizontally
 
-	auto speed_control_panel = new WPanel;
-	top_level_layout->addWidget (speed_control_panel);
+	auto control_panel = new WPanel;
+	top_level_layout->addWidget (control_panel);
 
-	auto control_layout = new WHBoxLayout;
+	auto control_layout = new WGridLayout;
 
-	speed_control_panel->setTitle ("Humidifier control");
+	control_panel->setTitle ("Humidifier control");
 
-	auto speed_control_label = new WText (this);
-	control_layout->addWidget (speed_control_label);
-	speed_control_label->setText ("Set FAN speed: ");
-	speed_control_label->setMargin (15, Bottom | Top);
+	const auto add_label = [ = ] (const char* txt, int row) {
+		auto label = new WText (this);
+		control_layout->addWidget (label, row, 0);
+		label->setText (txt);
+	};
 
-	auto speed_control_slider = new WSlider (Wt::Horizontal, this);
-	control_layout->addWidget (speed_control_slider, 1);
-	speed_control_slider->setMinimum (0);
-	speed_control_slider->setMaximum (100);
-	speed_control_slider->setValue (0);
-	speed_control_slider->setTickInterval (10);
-	speed_control_slider->setTickPosition (WSlider::TicksBelow);
-	speed_control_slider->valueChanged().connect (&hc_master_, &HCMaster::changeSpeed);
+	add_label ("Set FAN speed: ", 0);
+	add_label ("Set HEAT power: ", 1);
 
-	speed_feedback_lineedit_ = new WLineEdit;
-	speed_feedback_lineedit_->setReadOnly (true);
-	speed_feedback_lineedit_->setAttributeValue ("style", "text-align: center;");
-	control_layout->addWidget (speed_feedback_lineedit_);
+	const auto add_slider = [ = ] (void (HCMaster::*p) (int), int row) {
+		auto slider = new WSlider (Wt::Horizontal, this);
+		control_layout->addWidget (slider, row, 1);
+		slider->setMinimum (0);
+		slider->setMaximum (100);
+		slider->setValue (0);
+		slider->setTickInterval (10);
+		slider->setTickPosition (WSlider::TicksBelow);
+		slider->valueChanged().connect (&hc_master_, p);
+	};
 
-	auto speed_control_container = new WContainerWidget;
-	speed_control_container->setLayout (control_layout);
-	speed_control_panel->setCentralWidget (speed_control_container);
+	add_slider (&HCMaster::changeSpeed, 0);
+	add_slider (&HCMaster::changeHeat, 1);
+
+	const auto add_feedback = [ = ] (WLineEdit** l, int row) {
+		auto& lp = *l;
+
+		lp = new WLineEdit;
+		lp->setReadOnly (true);
+		lp->setAttributeValue ("style", "text-align: center;");
+		control_layout->addWidget (lp, row, 2);
+	};
+
+	add_feedback (&speed_feedback_lineedit_, 0);
+	add_feedback (&heat_feedback_lineedit_, 1);
+
+	auto refrWater = new WPushButton ("Refresh water");
+	control_layout->addWidget (refrWater, 2, 0);
+	refrWater->clicked().connect ([&] (Wt::WMouseEvent&) { hc_master_.refreshWater (); });
+
+	auto control_container = new WContainerWidget;
+	control_container->setLayout (control_layout);
+	control_panel->setCentralWidget (control_container);
 
 	auto log_panel = new WPanel;
 	auto log_container = new WContainerWidget;
@@ -172,12 +199,14 @@ HCWidget::~HCWidget()
 
 void HCWidget::displayData (const hc_data_t& d)
 {
-	speed_feedback_lineedit_->setText (boost::lexical_cast<std::string> (d.speed));
+	speed_feedback_lineedit_->setText (to_string (d.speed));
+	heat_feedback_lineedit_->setText (to_string (d.heat));
 
 	const auto taxis = size_t_Axes_cast (Axes::kTimeAxis);
 	const auto tempaxis = size_t_Axes_cast (Axes::kTemperatureAxis);
-	const auto haxis = size_t_Axes_cast (Axes::kHumidityAxis);
+	const auto huaxis = size_t_Axes_cast (Axes::kHumidityAxis);
 	const auto saxis = size_t_Axes_cast (Axes::kSpeedAxis);
+	const auto heataxis = size_t_Axes_cast (Axes::kHeatAxis);
 
 	if (last_ind_ != (kQuants - 1)) {
 		last_ind_ = ++last_ind_;
@@ -185,15 +214,17 @@ void HCWidget::displayData (const hc_data_t& d)
 		for (int i = 1; i < kQuants; ++i) {
 			graph_data_model_->setData (i - 1, taxis, graph_data_model_->data (graph_data_model_->index (i, taxis)));
 			graph_data_model_->setData (i - 1, tempaxis, graph_data_model_->data (graph_data_model_->index (i, tempaxis)));
-			graph_data_model_->setData (i - 1, haxis, graph_data_model_->data (graph_data_model_->index (i, haxis)));
+			graph_data_model_->setData (i - 1, huaxis, graph_data_model_->data (graph_data_model_->index (i, huaxis)));
 			graph_data_model_->setData (i - 1, saxis, graph_data_model_->data (graph_data_model_->index (i, saxis)));
+			graph_data_model_->setData (i - 1, heataxis, graph_data_model_->data (graph_data_model_->index (i, heataxis)));
 		}
 	}
 
 	graph_data_model_->setData (last_ind_, taxis, WTime::currentServerTime());
 	graph_data_model_->setData (last_ind_, tempaxis, d.temperature);
-	graph_data_model_->setData (last_ind_, haxis, d.humidity);
+	graph_data_model_->setData (last_ind_, huaxis, d.humidity);
 	graph_data_model_->setData (last_ind_, saxis, d.speed);
+	graph_data_model_->setData (last_ind_, heataxis, d.heat);
 
 	log (kInfo, hc_data_to_wtstring (d));
 
