@@ -56,7 +56,7 @@ namespace
 		const auto h_partial = rint ( (data.humidity - h_integral) * 10);
 		const auto t_partial = rint ( (data.temperature - t_integral) * 10);
 
-		return WString ("Humidity: {1}.{2}%; Temperature: {3}.{4}C°; Fan Speed: {5}%; Heat Power: {6}%")
+		return WString ("Humidity: {1}.{2}%; Temperature: {3}.{4} C; Fan Speed: {5}%; Heat Power: {6}%")
 			   .arg (h_integral).arg (h_partial)
 			   .arg (t_integral).arg (t_partial)
 			   .arg (data.speed).arg (data.heat);
