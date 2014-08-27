@@ -17,7 +17,8 @@ using namespace ::Wt;
 
 namespace
 {
-	const regex kKeyValRegex ("^[\\s]*([:alpha:][\\w]*)[\\s]*=[\\s]*([\\w/]+)[\\s]*$");
+	const regex kKeyValRegex {"^\\s*([a-zA-Z_]\\w+)\\s*=\\s*([\\w/]+)\\s*$"};
+	const string kConfigPath {"hc-web.cfg"};
 
 	enum class RegExIndexes : size_t
 	{
@@ -37,8 +38,7 @@ class HCApplication: public WApplication
 {
 public:
 	HCApplication (const WEnvironment& environment, HCMaster& hc_master) :
-		WApplication (environment)
-	{
+		WApplication {environment} {
 		setTitle ("HC-001");
 
 		setCssTheme ("polished");
@@ -47,7 +47,7 @@ public:
 		root()->setPadding (10);
 		root()->resize (WLength::Auto, WLength::Auto);
 
-		new HCWidget (hc_master, root());
+		new HCWidget {hc_master, root() };
 
 		useStyleSheet ("hc.css");
 	}
@@ -56,64 +56,89 @@ public:
 class HCAppFactory
 {
 public:
-	explicit HCAppFactory (HCMaster& hmaster) : hmaster_ (hmaster) {}
+	explicit HCAppFactory (HCMaster& hmaster) :
+		hmaster_ {hmaster}
+	{}
 
 	WApplication* operator() (const WEnvironment& env) const
 	{
-		return new HCApplication (env, hmaster_);
+		return new HCApplication {env, hmaster_};
 	}
 private:
 	HCMaster& hmaster_;
 };
 
-typedef unordered_map<std::string, std::string> ParamsMap;
-template<typename T> T readOrDefault (const ParamsMap& p, const string& key, T def_val)
-{
-	if (p.count (key) < 1) { return def_val; }
+using ParamsMap = unordered_map<std::string, std::string>;
 
-	T ret;
-	const auto& val = p.find (key)->second;
-	istringstream istr (val);
-	istr >> ret;
+struct config_reader_f {
+	explicit config_reader_f (const ParamsMap& params) : params_ {params} {}
 
-	return ret;
-}
+	template<typename T> T read (const string& key, T def_val = T {})
+	{
+		if (params_.count (key) < 1) { return def_val; }
+
+		T ret {};
+		const auto& val = params_.find (key)->second;
+		istringstream istr {val};
+		istr >> ret;
+
+		return ret;
+	}
+
+	const ParamsMap& params_;
+};
 
 int main (int argc, char** argv)
 {
-	ParamsMap params;
+	ParamsMap params {};
 
 	{
-		fstream opts_fh ("port.cfg", ios::in | ios::binary);
+		fstream opts_fh {kConfigPath, ios::in | ios::binary};
+		if (!opts_fh.is_open()) { clog << "Can't open " << kConfigPath << " configuration file." << endl; }
 
-		for (string line; getline (opts_fh, line);) {
-			smatch matched;
+		for (string line {}; getline (opts_fh, line);) {
+			smatch matched {};
 			if (regex_match (line, matched, kKeyValRegex) && (matched.size () == size_t_REI_cast (RegExIndexes::kCnt))) {
 				params[matched[size_t_REI_cast (RegExIndexes::kKey)]] = matched[size_t_REI_cast (RegExIndexes::kVal)];
 			}
 		}
 	}
 
-	WServer server (argv[0]);
+	for (auto && kv : params) {
+		clog << "parsed: [" << kv.first << "] -> " << kv.second << endl;
+	}
 
-	HCMaster hc_master (server);
+	WServer server {argv[0]};
+	HCMaster hc_master {server};
+	config_reader_f creader {params};
 
-	const auto baud_rate = readOrDefault<size_t> (params, "baud_rate", 9600U);
-	const auto port_name = readOrDefault<string> (params, "port_name", "/dev/ttyUSB0");
-
-	clog << "baud_rate = " << baud_rate << " bps" << endl;
-	clog << "port_name = " << port_name << endl;
+	const auto& baud_rate = creader.read ("baud_rate", 9600U);
+	const auto& port_name = creader.read ("port_name", string ("/dev/ttyUSB0"));
+	const auto& doc_root = creader.read ("doc_root", string ("."));
+	const auto& http_address = creader.read ("http_address", string ("0.0.0.0"));
+	const auto& http_port = to_string (creader.read ("http_port", 80U));
 
 	hc_master.start (baud_rate, port_name);
 
-	server.setServerConfiguration (argc, argv, WTHTTP_CONFIGURATION);
+	const char* argv_sentinel[] = {
+		argv[0],
+		"--docroot",
+		doc_root.data(),
+		"--http-address",
+		http_address.data(),
+		"--http-port",
+		http_port.data()
+	};
 
-	server.addEntryPoint (Wt::Application, HCAppFactory (hc_master));
+	server.setServerConfiguration ( (sizeof argv_sentinel / sizeof argv_sentinel[0]), const_cast<char**> (argv_sentinel));
+
+	server.addEntryPoint (Wt::Application, HCAppFactory {hc_master});
 
 	if (server.start()) {
 		const auto sig = WServer::waitForShutdown();
 		std::cerr << "Shutting down: (signal = " << sig << ")" << std::endl;
 		server.stop();
+
 		return EXIT_SUCCESS;
 	}
 

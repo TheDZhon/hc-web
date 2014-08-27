@@ -17,7 +17,7 @@ namespace
 	const auto kTimerTimeoutS = 10U;
 	const auto kTermSymbol = '|';
 
-	const std::regex kReadStateRe ("H:\\((\\d+\\.\\d+)\\)T:\\((\\d+\\.\\d+)\\)S:\\((\\d+)\\)P:\\((\\d+)\\)");
+	const std::regex kReadStateRe {"H:\\((\\d+\\.\\d+)\\)T:\\((\\d+\\.\\d+)\\)S:\\((\\d+)\\)P:\\((\\d+)\\)"};
 
 	enum class RcvIndxs : size_t
 	{
@@ -34,17 +34,16 @@ namespace
 }
 
 HCController::HCController (WObject* parent) :
-	WObject (parent),
-	io_ (1U),
-	sport_ (io_),
-	read_buf_(),
-	work_ (new as::io_service::work (io_)),
-	worker_(),
-	baud_rate_ (0U),
-	port_name_(),
-	deadline_timer_ (io_)
-{
-	worker_ = thread ([this] () { io_.run(); });
+	WObject {parent},
+		io_ {1U},
+		sport_ {io_},
+		read_buf_ {},
+work_ {new as::io_service::work {io_}},
+worker_ {},
+baud_rate_ {0U},
+port_name_ {},
+deadline_timer_ {io_} {
+	worker_ = move (thread ([this] () { io_.run(); }));
 }
 
 HCController::~HCController()
@@ -63,7 +62,7 @@ void HCController::start (size_t baud_rate, const std::string& port_name, const 
 	cb_ = r;
 	err_ = err;
 
-	error_code ec;
+	error_code ec {};
 	sport_.open (port_name, ec);
 	if (ec) {
 		err_ ("Can't open port " + port_name);
@@ -96,7 +95,7 @@ void HCController::refreshWater()
 
 void HCController::prepareSend (const string& data)
 {
-	const auto s_ptr = make_shared<string> (data);
+	auto&& s_ptr = make_shared<string> (data);
 	as::async_write (sport_, as::buffer (s_ptr->data(), s_ptr->size()),
 	[ = ] (const error_code & ec, size_t bytes) { handleWrite (s_ptr, ec, bytes); });
 }
@@ -130,13 +129,13 @@ void HCController::handleRead (const error_code& ec, size_t bytes)
 	if ( (!ec) && (bytes > 0)) {
 		read_buf_.commit (bytes);
 
-		std::istream is (&read_buf_);
-		std::string s;
+		std::istream is {&read_buf_};
+		std::string s {};
 		is >> s;
 
-		smatch sm;
+		smatch sm {};
 		if (regex_search (s, sm, kReadStateRe)) {
-			hc_data_t data;
+			hc_data_t data {};
 
 			data.humidity = stod (sm[size_t_RI_cast (RcvIndxs::kHumidity)]);
 			data.temperature = stod (sm[size_t_RI_cast (RcvIndxs::kTemperature)]);
